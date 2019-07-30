@@ -1,0 +1,62 @@
+const babel = require('babel-core');
+const fs = require('fs');
+const t = require('babel-types');
+
+
+
+const code = `
+    let a = 'a';
+    const b = 'b';
+    function add (x, y) {return x + y};
+    let add1 = () => 'c'
+`
+
+const varArr = ['let', 'const'];
+const visitor = {
+
+    Identifier(path){
+        // console.log('=========')
+        // console.log('visiting: ', path)
+        // console.log('=========')
+    },
+    VariableDeclaration(path){
+        const node = path.node;
+        if(varArr.includes(node.kind)){
+            // node.kind = 'var';
+        }
+    },
+    FunctionDeclaration(path){
+        const node = path.node;
+        const {id, params, body, generator, async} = node;
+
+        const res = t.arrowFunctionExpression(params, body) ;
+       
+        path.replaceWith(t.variableDeclaration('const',
+       [ t.variableDeclarator(id, res)]))
+        // path.node.type = 'VariableDeclaration';
+        // path.node.kind = 'let';
+        // console.log()
+    },
+    ArrowFunctionExpression(path){
+        let {id, params, body, generator, async} = path.node
+        if(!t.isBlockStatement(body)){
+            const node = t.returnStatement(body);
+            body = t.blockStatement([node])
+        }
+        path.replaceWith(t.functionExpression(id, params, body, generator, async))
+    }
+}
+
+const plugins = function(){
+    return {visitor}
+}
+
+const res = babel.transform(code, {
+    plugins: [plugins]
+})
+
+if(fs.existsSync('./after.js')){
+    fs.unlinkSync('./after.js');
+}
+
+fs.writeFileSync('./after.js', res.code, 'utf8')
